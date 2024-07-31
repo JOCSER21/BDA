@@ -1,0 +1,224 @@
+//RT
+
+cd /etc/postfix
+nano main.cf (cambiamos la ip y a donde apunta el mail)
+
+nano /etc/mailname
+(cambiamos el dominio grupo2.com)
+
+
+sudo nano /opt/rt5/etc/RT-Siteconfig.pm 
+
+
+///////////////////////////////////////////////////////////////////
+cacti 
+
+
+----------------------------------------------------CACTI---------------
+#apt-get update
+#apt-get install snmp
+#apt-get installs snmp-mibs-downloader
+#nano /etc/snmp/snmp.conf
+(comentamos el contenido) 
+
+#apt-get install cacti
+	apache
+	si
+	123
+(verificar que cacti funcione) 
+
+apt
+
+
+----------------alertas cacti-------------------------------------------- 
+cd/usr/share/cacti/site/plugins
+wget https://github.com/Cacti/plugin_thold/archive/v1.0.6.tar.gz
+tar -zxvf v1.0.6.tar.gz 
+cp plugin_thold-1.0.6 thold -R
+chmod 777 thold/ -R
+cd..
+/usr/share/cacti/site
+chmod 777 plugins
+
+
+
+///////////////////////////////////////////////////////
+NAGIOS4
+INSTALACION NAGIOS 4
+
+apt-get update
+apt-get install nagios4 nagios-plugins-contrib nagios-nrpe-plugin
+
+
+POSTCONFIGURACION
+cd /etc/apache2/conf-enabled
+ls
+nano nagios4-cgi.conf
+
+Require ip:                   192.168.10.0/24 (agregar la red cliente del escenario)
+Activamos los modulos con los comandos
+a2enmod authz_groupfile
+a2enmod auth_digest
+Reiniciamos Apache2
+systemctl restart apache2
+
+
+cd /etc/nagios4/conf.d
+nano router.cfg servicios.cfg
+
+
+
+/ARBOLES 
+// router
+define host{
+ max_check_attempts	1
+ check_command		check-host-alive
+ host_name		R1f0/0
+ alias			Router 1 Interface f0/0
+ address		200.2.10.1
+ parents		R1s1/0
+ use			generic-host
+ contacts		nagios
+ notifications_enabled	1
+}
+
+//servicio
+define host{
+ max_check_attempts	1
+ check_command		check-host-alive
+ host_name		sicoa
+ alias			SISTEMA SICOA
+ address		200.2.10.2
+ parents		R1f0/0
+ use			generic-host
+ contacts		nagios
+ notifications_enabled	1
+}
+
+define service{
+ host_name		sicoa
+ service_description	HTTP SICOA
+ check_command		check-host-alive
+ use			generic-host
+ contacts		nagios
+ notifications_enabled 
+}
+
+------------------alertas nagios----------------------------------
+
+cd /etc/nagios4/objects
+nano contacts.cfg
+
+contact_name	nagios
+#use
+alias		Nagios Grupo2
+service_notification_period	24x7
+host_notification_period	24x7
+service_notification_options	w,u,c,r
+host_notifications_options	d,r
+email				nagios@grupo2.com
+service_notification_commands	notify-service-by-email
+host_notification_commands	notify-host-by-email
+
+members nagios
+
+apt-get install ssmtp
+
+cd /etc/ssmtp
+nano ssmtp.conf
+
+root= nagios@grupo2.com
+mailhub= ip del rt : 25
+hostname= Ubuntu
+descomentar el FromLineOverride = YES
+
+
+
+
+nagios4 -v /etc/nagios4/nagios.cfg
+
+define service {
+host_name            sicoa
+service_description  HTTP SICOA
+check_command        check_http
+use                  generic-service
+}
+
+
+
+
+
+////////////////////////////////////////////////////
+SMOKEPING 
+
+
+INSTALACION 
+#apt-get install smokeping
+
+Cear un enlace simbolico al fichero de configuracion de apache2
+
+a2# a2enconf smokeping
+
+#a2enmod cgi
+#systemctl restart apache2
+cd /etc/smokeping/config.d
+ls
+nano Probes
+
++ EchoPingHttp
+binary = /usr/bin/echoping
+ignore_cache = yes
+pings = 5 
+url = /
+
+nano Targets
+
++ ROUTERS_GRUPO2
+
+menu = Routers Grupo2
+title = Routers Grupo2
+
+++ Router1
+menu = Router1
+title Router1
+
++++ R1F00
+menu = Router1 f0/0
+title = Router1 interfaz f0/0
+host = 200.2.10.1
+alerts = someloss
+
++ CLIENTES
+menu = Servicios Unach
+title = Servicios de la Unach
+
+++ Sicoa
+menu= SICOA
+title = sicoa unach
+host 200.2.10.2
+alerts = someloss
+
++++ http
+probe = EchoPingHttp
+menu = Chequeo Web sicoa
+title = Retardo Web
+host = 200.2.10.2
+alerts = someloss
+
+
+nano /etc/smokeping/conf.d/Alerts
+to = smokeping@grupo2.com
+from = smokeproblems@grupo2.com
+
+
+nano /etc/smokeping/conf.d/General
+
+owner = Carlos
+contact = carlos@grupo2.com
+mailhost ip del rt 
+
+
+
+
+
+
